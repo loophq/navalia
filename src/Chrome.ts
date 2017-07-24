@@ -191,8 +191,10 @@ export class Chrome extends EventEmitter {
 
     if (response && response.exceptionDetails) {
       throw new Error(
-        response.exceptionDetails.exception.value ||
-          response.exceptionDetails.exception.description,
+        JSON.stringify(
+          response.exceptionDetails.exception.value ||
+            response.exceptionDetails.exception.description,
+        ),
       );
     }
 
