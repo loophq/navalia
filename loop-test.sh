@@ -9,10 +9,10 @@ set -e
 MASTER=`"$(dirname $0)/loop-assert-master.sh" ${1}`
 
 echo "Build"
-npm run build
+./loop-build.sh
 echo "Remove old"
 rm -rf ${MASTER}/node_modules/navalia
 echo "Copy in new"
-cp -r build ${MASTER}/node_modules/navalia
+cp -r loop-build ${MASTER}/node_modules/navalia
 echo "Done"
 

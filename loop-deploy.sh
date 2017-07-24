@@ -9,10 +9,11 @@ set -e
 BASE=$(dirname $0)
 MASTER=`"${BASE}/loop-assert-master.sh" ${1}`
 
-if [ -d "${BASE}/build" ]; then
-  if [ "`npm view ${BASE}/build version`" == "`npm view ${BASE} version`" ]; then
+if [ -d "${BASE}/loop-build" ]; then
+  if [ "`npm view ${BASE}/loop-build version`" == "`npm view ${BASE} version`" ]; then
     echo "Careful, you're deploying with the same version number as the version in /build"
   fi
 fi
-npm run build
+${BASE}/loop-build.sh
+cd ${BASE}/loop-build
 ${MASTER}/tools/javascript/upload-package-artifact.sh .
