@@ -1,6 +1,8 @@
 import * as _ from 'lodash';
 import * as chromeLauncher from 'chrome-launcher';
 import * as CDP from 'chrome-remote-interface';
+import * as debug from 'debug';
+const log = debug('navalia:chrome-utils');
 
 export interface flags {
   [propName: string]: boolean;
@@ -93,21 +95,27 @@ export const createTab = async (cdp: cdp, port: number): Promise<tab> => {
   });
 
   // connct to the new context
-  const tab: cdp = await CDP({
-    tab: `ws://localhost:${port}/devtools/page/${targetId}`,
-  });
+  try {
+    const tab: cdp = await CDP({
+      target: targetId,
+      port: port,
+    });
 
-  // Enable all the domains on the tab
-  await Promise.all([
-    tab.Page.enable(),
-    tab.Runtime.enable(),
-    tab.Network.enable(),
-    tab.DOM.enable(),
-    tab.CSS.enable(),
-  ]);
+    // Enable all the domains on the tab
+    await Promise.all([
+      tab.Page.enable(),
+      tab.Runtime.enable(),
+      tab.Network.enable(),
+      tab.DOM.enable(),
+      tab.CSS.enable(),
+    ]);
 
-  return {
-    tab,
-    targetId,
-  };
+    return {
+      tab,
+      targetId,
+    };
+  } catch (e) {
+    log(e);
+    throw e;
+  }
 };

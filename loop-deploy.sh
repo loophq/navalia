@@ -15,5 +15,4 @@ if [ -d "${BASE}/build" ]; then
   fi
 fi
 npm run build
-cd build
 ${MASTER}/tools/javascript/upload-package-artifact.sh .
