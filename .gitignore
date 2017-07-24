@@ -14,3 +14,6 @@ _site
 
 # Coverage
 coverage
+
+# Emacs
+*~
