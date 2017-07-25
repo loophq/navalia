@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="../build/util/Selector.js" type="application/javascript">
+    </script>
+    <title>Title</title>
+</head>
+<body>
+  <div data-testID="first">
+    <p>Some text</p>
+    <p>Test my partial components text</p>
+    <p data-testID="container">Test my <span style="color: red;">spanned text</span> huh?</p>
+    <div>
+      <span>Do you want to join <span>234234234</span>?</span>
+    </div>
+  </div>
+<script>
+  var matches = match(document, {
+//    selector: {fullText: "Test my spanned text huh?"},
+//    selector: {fullText: "Do you want to join 234234234?"},
+    selector: {fullText: "asdfasdf"},
+//    ancestor: {selector: {id: "first"}},
+//    descendant: {selector: {partialText: "spanned text"}}
+  });
+  console.log("Matches");
+  console.log(matches);
+</script>
+</body>
+</html>
