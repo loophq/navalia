@@ -4,6 +4,12 @@ import * as fs from 'fs';
 import * as debug from 'debug';
 
 import * as chromeUtil from './util/chrome';
+import {
+  match as matchSelector,
+  requireSingular,
+  ElementSelector as Selector,
+  StringifiedContext,
+} from './util/Selector';
 import { getPageURL, waitForElement, click, html } from './util/dom';
 
 const log = debug('navalia:chrome');
@@ -173,6 +179,7 @@ export class Chrome extends EventEmitter {
     // Assume scripts are async, and if not wrap the result in a resolve calls
     const script = `
       (() => {
+        ${StringifiedContext}
         const result = (${String(expression)}).apply(null, ${JSON.stringify(
       args,
     )});
@@ -264,7 +271,7 @@ export class Chrome extends EventEmitter {
   }
 
   public async exists(
-    selector: string,
+    selector: Selector,
     opts: domOpts = defaultDomOpts,
   ): Promise<boolean> {
     await this.navigatingPromise;
@@ -276,13 +283,12 @@ export class Chrome extends EventEmitter {
     log(`:exists() > checking if '${selector}' exists`);
 
     return this.evaluate(selector => {
-      const ele = document.querySelector(selector);
-      return !!ele;
+      return matchSelector(document, selector).length > 0;
     }, selector);
   }
 
   public async html(
-    selector: string = 'html',
+    selector: Selector = { selector: { css: 'html' } },
     opts: domOpts = defaultDomOpts,
   ): Promise<string | null> {
     await this.navigatingPromise;
@@ -297,7 +303,7 @@ export class Chrome extends EventEmitter {
   }
 
   public async text(
-    selector: string = 'body',
+    selector: Selector = { selector: { css: 'body' } },
     opts: domOpts = defaultDomOpts,
   ): Promise<string> {
     await this.navigatingPromise;
@@ -309,10 +315,7 @@ export class Chrome extends EventEmitter {
     log(`:text() > getting '${selector}' text`);
 
     return this.evaluate(selector => {
-      const ele = document.querySelector(selector);
-      if (!ele) {
-        throw new Error(`:text() > selector ${selector} wasn't found.`);
-      }
+      const ele = requireSingular(document, selector);
       return ele.textContent;
     }, selector);
   }
@@ -405,7 +408,7 @@ export class Chrome extends EventEmitter {
   }
 
   public async click(
-    selector: string,
+    selector: Selector,
     opts: domOpts = defaultDomOpts,
   ): Promise<boolean> {
     await this.navigatingPromise;
@@ -420,12 +423,10 @@ export class Chrome extends EventEmitter {
   }
 
   public async focus(
-    selector: string,
+    selector: Selector,
     opts: domOpts = defaultDomOpts,
   ): Promise<boolean> {
     await this.navigatingPromise;
-
-    const cdp = await this.getChromeCDP();
 
     if (opts.wait) {
       await this.wait(selector, opts.timeout);
@@ -433,25 +434,44 @@ export class Chrome extends EventEmitter {
 
     log(`:focus() > focusing '${selector}'`);
 
-    const { root: { nodeId } } = await cdp.DOM.getDocument();
-    const node = await cdp.DOM.querySelector({
-      selector,
-      nodeId,
-    });
-
-    if (!node) {
-      throw new Error(
-        `:focus() > Couldn't find element '${selector}' on the page.`,
-      );
-    }
-
-    await cdp.DOM.focus({ nodeId: node.nodeId });
+    await this.evaluate(selector => {
+      (<HTMLElement>requireSingular(document, selector)).focus();
+    }, selector);
 
     return true;
   }
 
+  public async dispatchEvents(
+    selector: Selector,
+    events: Array<string>,
+    opts: domOpts = defaultDomOpts,
+  ): Promise<boolean> {
+    await this.navigatingPromise;
+
+    if (opts.wait) {
+      await this.wait(selector, opts.timeout);
+    }
+
+    log(`:dispatchEvents() > dispatching to ${selector} events ${events}`);
+
+    this.evaluate(
+      (selector: Selector, events: Array<string>) => {
+        const element = requireSingular(document, selector);
+        events.forEach(eventName => {
+          const event = document.createEvent('MouseEvent');
+          event.initEvent(eventName, true, true);
+          element.dispatchEvent(event);
+        });
+        return true;
+      },
+      selector,
+      events,
+    );
+    return true;
+  }
+
   public async type(
-    selector: string,
+    selector: Selector,
     value: string,
     opts: domOpts = defaultDomOpts,
   ): Promise<boolean> {
@@ -464,7 +484,7 @@ export class Chrome extends EventEmitter {
     // Focus on the selector
     await this.focus(selector, { wait: false });
 
-    log(`:type() > typing text '${value}' into '${selector}'`);
+    log(`:type() > typing text '${value}' into '${JSON.stringify(selector)}'`);
 
     const keys = value.split('') || [];
 
@@ -476,7 +496,7 @@ export class Chrome extends EventEmitter {
   }
 
   public async check(
-    selector: string,
+    selector: Selector,
     opts: domOpts = defaultDomOpts,
   ): Promise<boolean> {
     await this.navigatingPromise;
@@ -488,9 +508,9 @@ export class Chrome extends EventEmitter {
     log(`:check() > checking checkbox '${selector}'`);
 
     return this.evaluate(selector => {
-      var element = document.querySelector(selector);
-      if (element) {
-        element.checked = true;
+      var element = matchSelector(document, selector);
+      if (element.length > 0) {
+        element[0].setAttribute('checked', 'true');
         return true;
       }
       return false;
@@ -498,7 +518,7 @@ export class Chrome extends EventEmitter {
   }
 
   public async uncheck(
-    selector: string,
+    selector: Selector,
     opts: domOpts = defaultDomOpts,
   ): Promise<boolean> {
     await this.navigatingPromise;
@@ -510,17 +530,13 @@ export class Chrome extends EventEmitter {
     log(`:uncheck() > un-checking checkbox '${selector}'`);
 
     return this.evaluate(selector => {
-      var element = document.querySelector(selector);
-      if (!element) {
-        throw new Error(`:uncheck() > Couldn't find '${selector}' on page.`);
-      }
-      element.checked = false;
+      requireSingular(document, selector).setAttribute('checked', 'false');
       return true;
     }, selector);
   }
 
   public async select(
-    selector: string,
+    selector: Selector,
     option: string,
     opts: domOpts = defaultDomOpts,
   ): Promise<boolean> {
@@ -533,9 +549,9 @@ export class Chrome extends EventEmitter {
     log(`:select() > selecting option '${option}' in '${selector}'`);
 
     return this.evaluate(selector => {
-      var element = document.querySelector(selector);
-      if (element) {
-        element.value = option;
+      var element = matchSelector(document, selector);
+      if (element.length > 0) {
+        element[0].setAttribute('value', option);
         return true;
       }
       return false;
@@ -543,7 +559,7 @@ export class Chrome extends EventEmitter {
   }
 
   public async visible(
-    selector: string,
+    selector: Selector,
     opts: domOpts = defaultDomOpts,
   ): Promise<boolean> {
     await this.navigatingPromise;
@@ -555,11 +571,7 @@ export class Chrome extends EventEmitter {
     log(`:visible() > seeing if '${selector}' is visible`);
 
     return this.evaluate(selector => {
-      var element = document.querySelector(selector);
-
-      if (!element) {
-        throw new Error(`:visible() > Couldn't find '${selector}' on page.`);
-      }
+      var element = requireSingular(document, selector);
 
       let style;
       try {
@@ -577,12 +589,15 @@ export class Chrome extends EventEmitter {
       ) {
         return true;
       }
-      return element.offsetWidth > 0 && element.offsetHeight > 0;
+      return (
+        (<HTMLElement>element).offsetWidth > 0 &&
+        (<HTMLElement>element).offsetHeight > 0
+      );
     }, selector);
   }
 
   public async wait(
-    waitParam: number | string,
+    waitParam: number | Selector,
     timeout?: number,
   ): Promise<any> {
     await this.navigatingPromise;
@@ -671,7 +686,7 @@ export class Chrome extends EventEmitter {
   }
 
   public async attr(
-    selector: string,
+    selector: Selector,
     attribute: string,
     opts: domOpts = defaultDomOpts,
   ): Promise<string | null> {
@@ -685,10 +700,10 @@ export class Chrome extends EventEmitter {
 
     return this.evaluate(
       (selector, attribute) => {
-        const ele = document.querySelector(selector);
+        const ele = matchSelector(document, selector);
 
-        if (ele) {
-          return ele.getAttribute(attribute);
+        if (ele.length > 0) {
+          return ele[0].getAttribute(attribute);
         }
 
         return null;
