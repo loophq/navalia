@@ -277,7 +277,11 @@ export class Chrome extends EventEmitter {
     await this.navigatingPromise;
 
     if (opts.wait) {
-      await this.wait(selector, opts.timeout);
+      let wasRejected = false;
+      await this.wait(selector, opts.timeout).catch(() => (wasRejected = true));
+      if (wasRejected) {
+        return false;
+      }
     }
 
     log(`:exists() > checking if '${selector}' exists`);
