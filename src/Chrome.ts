@@ -499,6 +499,28 @@ export class Chrome extends EventEmitter {
     return true;
   }
 
+  public async clearText(
+    selector: Selector,
+    opts: domOpts = defaultDomOpts,
+  ): Promise<boolean> {
+    await this.navigatingPromise;
+
+    if (opts.wait) {
+      await this.wait(selector, opts.timeout);
+    }
+
+    // Focus on the selector
+    await this.focus(selector, { wait: false });
+
+    log(`:clearText() > clearing '${JSON.stringify(selector)}'`);
+
+    await this.evaluate((selector: Selector) => {
+      (<HTMLInputElement>requireSingular(document, selector)).value = '';
+    }, selector);
+
+    return true;
+  }
+
   public async check(
     selector: Selector,
     opts: domOpts = defaultDomOpts,
