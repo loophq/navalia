@@ -16,6 +16,11 @@ Drive a headless browser with ease by using GraphQL. Navalia exposes both a Grap
 
 [Install the npm module to run the GraphiQL client](https://www.npmjs.com/package/navalia)
 
+## Loop changes
+A few updates here and there to fix some crashes we were getting in our usage.
+
+Implemented `Selector.ts`, enabling more sophisticated element selection (e.g. `by.id('list-item').withDescendant(by.text('TODO item 1'))`) by traversing the DOM and testing the elements. Obviously not for everyone. We haven't noticed performance differences (since DOM traversing is done once or twice per action).
+
 ## Features
 
 - Scrape webpage data, even from JavaScript-heavy sites.
