@@ -134,10 +134,23 @@ export class Chrome extends EventEmitter {
     return new Promise(async (resolve, reject) => {
       let hasResolved = false;
       let requestId = null;
-      const timeoutId = setTimeout(
-        () => reject(`Goto failed to load in the timeout specified`),
-        opts.timeout || this.defaultTimeout,
-      );
+      let noLoad = false;
+      if (url.includes('#')) {
+        const currentLocation: string = await this.evaluate(getPageURL);
+        noLoad =
+          currentLocation.includes('#') &&
+          currentLocation.substr(0, currentLocation.indexOf('#')) ===
+            url.substr(0, url.indexOf('#'));
+        log(
+          `:goto() > identified goto url (${url}) as part of the same single page app as current url (${currentLocation}).`,
+        );
+      }
+      const timeoutId = noLoad
+        ? null
+        : setTimeout(
+            () => reject(`Goto failed to load in the timeout specified`),
+            opts.timeout || this.defaultTimeout,
+          );
 
       cdp.Network.requestWillBeSent(params => {
         if (requestId) return;
@@ -150,7 +163,9 @@ export class Chrome extends EventEmitter {
         if (hasResolved) return;
         if (params.requestId === requestId) {
           hasResolved = true;
-          clearTimeout(timeoutId);
+          if (timeoutId != null) {
+            clearTimeout(timeoutId);
+          }
           reject(params.errorText);
         }
       });
@@ -159,7 +174,9 @@ export class Chrome extends EventEmitter {
         if (hasResolved) return;
         if (params.requestId === requestId) {
           hasResolved = true;
-          clearTimeout(timeoutId);
+          if (timeoutId != null) {
+            clearTimeout(timeoutId);
+          }
           if (waitForPageload) {
             log(`:goto() > waiting for pageload on ${url}`);
             await cdp.Page.loadEventFired();
@@ -170,6 +187,10 @@ export class Chrome extends EventEmitter {
 
       const { frameId } = await cdp.Page.navigate({ url });
       this.frameId = frameId;
+      if (noLoad) {
+        hasResolved = true;
+        resolve(await this.evaluate(getPageURL));
+      }
     });
   }
 
